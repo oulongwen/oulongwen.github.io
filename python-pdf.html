@@ -29,11 +29,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 <meta name="author" content="Longwen Ou" />
-<meta name="description" content="To be continued..." />
+<meta name="description" content="Plotting probability density function with python" />
 <meta name="keywords" content="Python, pandas, matplotlib">
 <meta property="og:site_name" content="Longwen's Blog"/>
 <meta property="og:title" content="How to Plot Probability Density Function (PDF) in Python"/>
-<meta property="og:description" content="To be continued..."/>
+<meta property="og:description" content="Plotting probability density function with python"/>
 <meta property="og:locale" content="en_US"/>
 <meta property="og:url" content="https://oulongwen.github.io/python-pdf.html"/>
 <meta property="og:type" content="article"/>
@@ -101,7 +101,151 @@
 
 
   <div>
-    <h2>To be continued...</h2>
+    <p>In my research I often want to plot the Probability Density Function (PDF) of simulation data. It is pretty straightforward to plot a Cumulative Distribution Function (CDF) of some data, it is not as easy to plot the PDF in python. Therefore I prepare this post serving as a cookbook for me and for others that may want to do the same thing.</p>
+<p>Plotting a PDF is actually a problem of Kernel Density Estimation (KDE). This post will be focusing on plotting PDF in python and hence will not talk much about the theory of KDE. Interested readers are encouraged to read <a href="https://jakevdp.github.io/blog/2013/12/01/kernel-density-estimation/">this fantastic post</a> about kernel density estimation in python.</p>
+<h3>Simulation data</h3>
+<p>The data used consist of 10,000 data points sampled from two normal distributions with 5,000 from each. The simulation data are generated from the following code.</p>
+<div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+
+<span class="n">size</span> <span class="o">=</span> <span class="mi">5000</span>
+<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span>
+<span class="n">data1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="n">size</span><span class="p">)</span>
+<span class="n">data2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="n">size</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data1</span><span class="p">,</span> <span class="n">data2</span><span class="p">)</span>
+</pre></div>
+
+
+<p>Histogram of the original data is shown below:</p>
+<div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Histogram of Simulation Data&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+
+<p><img alt="Original data" src="https://oulongwen.github.io/images/hist.png">
+Now let's get into our business of how to plot probability density functions.</p>
+<h3>1. The easy way</h3>
+<p>Serveral python packages come with the capability of plotting PDF. They are easy to use and therefore suitable for those who are just interested to make a simple PDF plot.</p>
+<h4>PDF plots with <code>seaborn</code></h4>
+<p><a href="http://seaborn.pydata.org/index.html"><code>seaborn</code></a> is a powerful python visualization library based on <code>matplotlib</code>. `Seaborn comes with the several functions that are very handy for making PDF plots.</p>
+<p>The <code>seaborn.distplot</code> function is the easiest way to make a PDF plot for a data set. It also shows the histogram by default. The users may toggle the histogram using the <code>kde</code> argument.</p>
+<div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">seaborn</span> <span class="kn">as</span> <span class="nn">sns</span>
+
+
+<span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>     
+<span class="n">sns</span><span class="o">.</span><span class="n">distplot</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">hist</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax1</span><span class="p">)</span>                          <span class="c1"># Histogram can be toggled by setting hist=False</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">])</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">])</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;KDE with Gaussian kernel&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="n">sns</span><span class="o">.</span><span class="n">distplot</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">norm_hist</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax2</span><span class="p">,</span> <span class="n">kde</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>          <span class="c1"># Only show the histogram</span>
+<span class="n">sns</span><span class="o">.</span><span class="n">kdeplot</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">kernel</span><span class="o">=</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="n">bw</span><span class="o">=</span><span class="s1">&#39;silverman&#39;</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax2</span><span class="p">)</span>        <span class="c1"># Draw pdf with Cosine kernel, silverman bw method         </span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">])</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">])</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;KDE with Cosine kernel&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+
+<p><img alt="seaborn" src="https://oulongwen.github.io/images/distplot.png">
+<code>seaborn.distplot</code> only comes with the gaussian kernel for KDE. If another is of interest to the user, the <code>seaborn.kdeplot</code> function can be used. <code>seaborn.kdeplot</code> provides more options than<code>distplot</code> as well as more kernels including <em>Triangular</em>, <em>Cosine</em>, <em>Biweight</em>, etc. It also allows for several methods for bandwith selection.</p>
+<h4>PDF plots with <code>pandas</code></h4>
+<p>Another library that comes with the capability of kernel density estimation is <code>pandas</code>. <code>pandas</code> is a very powerful and probably the most popular python library for data manipulatoin. It also comes with handy function for its <code>DataFrame</code> object. The result of the code looks very similar to the top panel of the previous figure and hence is not shown here.</p>
+<div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
+
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">df</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s1">&#39;kde&#39;</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">)</span>       <span class="c1"># This line is equivalent to &quot; df.plot.kde(ax=ax) &quot;</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">])</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;KDE plot with pandas&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+
+<h3>2. The flexible way</h3>
+<p>One major disadvantage of <code>seaborn</code> and <code>pandas</code> is that they return a <code>matplotlib</code> <code>axis</code> project. Therefore we lost control of the curve we draw. It is fine if our object is just to plot the KDE curve. We often want more than that, however. For example, we may want to highlight the 90% confidence interval. If this is the case, we should take a look at a slightly more complex way of plotting KDE curves that gives us more control over our figure.</p>
+<h4>KDE plot with <code>scipy</code></h4>
+<p><code>scipy</code> is a famous python library for scientific computation. KDE plots can be easily made with <code>scipy.stats.gaussian_kde</code> class. One feature of <code>scipy.stats.gaussian_kde</code> is that it enables sampling of the estimated PDF.</p>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
+
+
+<span class="n">pdf</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">gaussian_kde</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">2000</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">pdf</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="n">sample</span> <span class="o">=</span> <span class="n">pdf</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="mi">2000</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">normed</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;PDF with histogram of original data&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">normed</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;PDF with historgram of resampled data&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+
+<p><img alt="scipy" src="https://oulongwen.github.io/images/scipy_resampling.png"></p>
+<h4>KDE plot with <code>statsmodels</code></h4>
+<p><code>scipy.stats</code> suffers from one disvantages of having only one kernel - gaussian kernel. It is sufficient for most cases though. If the reader wants to use another kernel, then <code>statsmodels</code> is probably a good choice with seven kernels.</p>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">statsmodels.nonparametric.kde</span> <span class="kn">import</span> <span class="n">KDEUnivariate</span>
+
+
+<span class="n">kde</span> <span class="o">=</span> <span class="n">KDEUnivariate</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">kde</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">211</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">support</span><span class="p">,</span> <span class="n">kde</span><span class="o">.</span><span class="n">density</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">normed</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;PDF with histogram&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">212</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">kde</span><span class="o">.</span><span class="n">support</span><span class="p">,</span> <span class="n">kde</span><span class="o">.</span><span class="n">cdf</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;CDF&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+
+<p><img alt="stats" src="https://oulongwen.github.io/images/stats_cdf_with_pdf.png"></p>
+<p>However, things become a little complicated when we want to highlight the 80% confidence interval. We must first calculate the corresponding x values for this interval. These values should be calculated from the cumulative distribution function (CDF). The <code>KDEUnivariate</code> has an attribuate <code>cdf</code> that contains CDF value for the support. Hence we then use then <code>interp1d</code> function in <code>scipy.interpolate</code> to interpolate the inverse function of the cumulative distribution function to calculate the confidence intervals. If we want to use other scipy to estimate the PDF, for which there is no CDF function readily available, we may use the <code>ECDF</code> function in the <code>statsmodels.distributions.empirical_distribution</code> library to calculate the CDF. It returns the cumulative distribution function values at discrete x values. One advantage of using <code>ECDF</code> over <code>KDEUnivariate</code> is that it is much faster to intepolate using the former, probably due to the smaller size of the returned numpy array. The following code shows how to calculate confidence interval with <code>scipy.stats.gaussian_kde</code>, the same method can be used with <code>KDEUnivariate</code>.</p>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">statsmodels.distributions.empirical_distribution</span> <span class="kn">import</span> <span class="n">ECDF</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">interp1d</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">gaussian_kde</span>
+<span class="n">kde</span> <span class="o">=</span> <span class="n">gaussian_kde</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">ecdf</span> <span class="o">=</span> <span class="n">ECDF</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">inv_cdf</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">ecdf</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">ecdf</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">kde</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">211</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">inv_cdf</span><span class="p">(</span><span class="o">.</span><span class="mi">1</span><span class="p">))</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="n">inv_cdf</span><span class="p">(</span><span class="o">.</span><span class="mi">9</span><span class="p">)),</span> <span class="n">facecolor</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=.</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Probability density function&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">212</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ecdf</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">ecdf</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">]:</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="n">inv_cdf</span><span class="p">(</span><span class="n">p</span><span class="p">)],</span> <span class="p">[</span><span class="n">p</span><span class="p">,</span> <span class="n">p</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;dashed&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">inv_cdf</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">inv_cdf</span><span class="p">(</span><span class="n">p</span><span class="p">)],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">p</span><span class="p">],</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;dashed&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Cumulative Distribution Function&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+
+<p><img alt="scipy with cdf" src="https://oulongwen.github.io/images/scipy_with_cdf.png"></p>
+<p>To summarize, python provides several libraries that can be used to plot probability density functions. Libraries like <code>pandas</code> and <code>seaborn</code> are easy use while other packages <code>scipy.stats</code> and <code>statsmodels</code> offer more control over the plot. Readers can choose between these libraries based on their needs.</p>
   </div>
   <div class="tag-cloud">
     <p>
